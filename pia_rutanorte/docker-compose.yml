@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rutanorte
+      POSTGRES_PASSWORD: rutanorte
+      POSTGRES_DB: rutanorte
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rutanorte -d rutanorte"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://rutanorte:rutanorte@db:5432/rutanorte
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+  tests:
+    build: .
+    environment:
+      DATABASE_URL: "sqlite:///:memory:"
+    command: python -m pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80
