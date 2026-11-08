@@ -5,19 +5,19 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   test-and-quality:
+    name: Pruebas y cobertura
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: pia_rutanorte
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Obtener codigo
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Preparar Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -26,6 +26,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Pruebas unitarias, integracion y cobertura
+      - name: Ejecutar pruebas y cobertura
         run: |
           python -m pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80
