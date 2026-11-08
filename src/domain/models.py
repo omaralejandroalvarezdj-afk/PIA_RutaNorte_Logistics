@@ -12,12 +12,15 @@ from decimal import Decimal
 from enum import Enum
 
 from src.domain.exceptions import (
+    CreditoBloqueado,
     InvalidOrderData,
     InvalidOrderTransition,
     WeightDiscrepancyDetected,
 )
 from src.domain.specifications import (
     ClienteActivoSpecification,
+    ClienteCorporativoSpecification,
+    MorosidadDentroLimiteSpecification,
     ClientePreferenteSpecification,
     MontoMinimoSpecification,
     PromocionActivaSpecification,
@@ -116,10 +119,13 @@ class Cliente:
     es_corporativo: bool = False
     activo: bool = True
     es_preferente: bool = False
+    dias_morosidad: int = 0
 
     def __post_init__(self):
         if not self.id.strip() or not self.razon_social.strip():
             raise InvalidOrderData("El cliente requiere un identificador y una razón social.")
+        if self.dias_morosidad < 0:
+            raise InvalidOrderData("Los días de morosidad no pueden ser negativos.")
 
 
 @dataclass(frozen=True)
@@ -141,6 +147,7 @@ class DomainEvent:
     name: str
     order_id: str
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    detail: str = ""
 
 
 # --- Aggregate Root ----------------------------------------------------------
@@ -191,6 +198,11 @@ class OrdenServicio:
         )
         return regla.is_satisfied_by(self)
 
+    def credito_vigente(self) -> bool:
+        """US-13: NOT corporativo OR morosidad <= 30 días."""
+        regla = ~ClienteCorporativoSpecification() | MorosidadDentroLimiteSpecification()
+        return regla.is_satisfied_by(self)
+
     # -- Máquina de estados -----------------------------------------------
     def _transicionar(self, destino: OrderStatus) -> None:
         if destino not in TRANSICIONES_VALIDAS[self.status]:
@@ -212,6 +224,11 @@ class OrdenServicio:
                 f"No es posible confirmar la orden para el cliente '{self.cliente.razon_social}' "
                 "debido a que su cuenta se encuentra inactiva o con restricciones financieras."
             )
+        if not self.credito_vigente():
+            raise CreditoBloqueado(
+                f"Crédito bloqueado: '{self.cliente.razon_social}' acumula {self.cliente.dias_morosidad} días de "
+                "morosidad (límite 30). Se requiere la intervención de Gerencia de Finanzas."
+            )
         self._transicionar(OrderStatus.CONFIRMED)
         self.events.append(DomainEvent("OrdenConfirmada", self.id))
 
@@ -226,7 +243,7 @@ class OrdenServicio:
         self._transicionar(OrderStatus.UNIT_ASSIGNED)
         self.vehiculo = vehiculo
         self.operador = operador
-        self.events.append(DomainEvent("UnidadYOperadorAsignados", self.id))
+        self.events.append(DomainEvent("UnidadYOperadorAsignados", self.id, detail=f"Unidad {vehiculo.placas} · operador {operador.nombre}"))
 
     # CU-03 y CU-04
     def validar_recoleccion(self, peso_cotizado: float, peso_real: float):
@@ -242,7 +259,9 @@ class OrdenServicio:
 
         if diferencia > TOLERANCIA_PESO_PORCENTUAL:
             self._transicionar(OrderStatus.IN_REVIEW)
-            self.events.append(DomainEvent("DiscrepanciaDetectada", self.id))
+            self.events.append(
+                DomainEvent("DiscrepanciaDetectada", self.id, detail=f"Peso cotizado {peso_cotizado} kg · real {peso_real} kg · variación {diferencia:.1f}%")
+            )
             raise WeightDiscrepancyDetected(
                 f"Alerta operativa: El peso real registrado ({peso_real} kg) supera en un {diferencia:.1f}% "
                 f"al peso cotizado ({peso_cotizado} kg), sobrepasando la tolerancia permitida del 15%. "
@@ -250,7 +269,9 @@ class OrdenServicio:
             )
 
         self._transicionar(OrderStatus.COLLECTED)
-        self.events.append(DomainEvent("RecoleccionRegistrada", self.id))
+        self.events.append(
+            DomainEvent("RecoleccionRegistrada", self.id, detail=f"Variación de peso {diferencia:.1f}% dentro de tolerancia")
+        )
 
     # CU-05
     def registrar_entrega(self, evidencia: EvidenciaPOD):
@@ -260,7 +281,7 @@ class OrdenServicio:
             )
         self._transicionar(OrderStatus.DELIVERED)
         self.evidencia_pod = evidencia
-        self.events.append(DomainEvent("EntregaCompletada", self.id))
+        self.events.append(DomainEvent("EntregaCompletada", self.id, detail="POD registrada (firma, INE y fotografías)"))
 
     def cancelar_orden(self, motivo: str):
         if self.status in (OrderStatus.DELIVERED, OrderStatus.CANCELLED):
@@ -270,4 +291,4 @@ class OrdenServicio:
         if not motivo.strip():
             raise InvalidOrderData("Debe proporcionar un motivo claro y justificado para la cancelación de la orden.")
         self._transicionar(OrderStatus.CANCELLED)
-        self.events.append(DomainEvent("OrdenCancelada", self.id))
+        self.events.append(DomainEvent("OrdenCancelada", self.id, detail=motivo))

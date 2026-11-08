@@ -6,6 +6,7 @@ from typing import Callable
 
 from src.domain.models import DomainEvent
 from src.domain.repositories import (
+    EventoRepository,
     ClienteRepository,
     OperadorRepository,
     OrdenServicioRepository,
@@ -18,6 +19,7 @@ class AbstractUnitOfWork(ABC):
     vehiculos: VehiculoRepository
     operadores: OperadorRepository
     ordenes: OrdenServicioRepository
+    eventos: EventoRepository
 
     def __init__(self, event_publisher: Callable[[DomainEvent], None] | None = None):
         self.published_events: list[DomainEvent] = []
@@ -31,17 +33,25 @@ class AbstractUnitOfWork(ABC):
         self.rollback()
 
     def commit(self) -> None:
-        """COMMIT y, solo después, publicación de los Domain Events acumulados."""
+        """Guarda los eventos en la MISMA transacción, hace COMMIT y solo después los publica."""
+        pendientes = self._recolectar_eventos()
+        self._guardar_eventos(pendientes)
         self._commit()
-        self._publish_events()
+        for evento in pendientes:
+            self.published_events.append(evento)
+            if self._event_publisher:
+                self._event_publisher(evento)
 
-    def _publish_events(self) -> None:
+    def _recolectar_eventos(self) -> list[DomainEvent]:
+        pendientes: list[DomainEvent] = []
         for orden in self.ordenes.seen.values():
-            while orden.events:
-                evento = orden.events.pop(0)
-                self.published_events.append(evento)
-                if self._event_publisher:
-                    self._event_publisher(evento)
+            pendientes.extend(orden.events)
+            orden.events.clear()
+        return pendientes
+
+    def _guardar_eventos(self, eventos: list[DomainEvent]) -> None:
+        if eventos:
+            self.eventos.registrar(eventos)
 
     @abstractmethod
     def _commit(self) -> None: ...

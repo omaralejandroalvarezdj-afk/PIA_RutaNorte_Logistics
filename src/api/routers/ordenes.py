@@ -49,6 +49,16 @@ def crear_orden(data: CrearOrdenRequest, service: OrdenApplicationService = Depe
 
 
 
+@router.get("", summary="Consultar lista de órdenes")
+def listar_ordenes(service: OrdenApplicationService = Depends(get_service)):
+    return service.listar_ordenes()
+
+
+@router.get("/{orden_id}/eventos", summary="Consultar historial de una orden")
+def eventos_orden(orden_id: str, service: OrdenApplicationService = Depends(get_service)):
+    return service.eventos_orden(orden_id)
+
+
 @router.get("/{orden_id}", summary="Consultar una orden")
 
 def consultar_orden(

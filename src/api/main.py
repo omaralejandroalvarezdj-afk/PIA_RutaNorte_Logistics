@@ -9,9 +9,11 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-
-from src.api.routers import clientes, ordenes
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from src.api.routers import clientes, consultas, ordenes
 from src.domain.exceptions import (
+    CreditoBloqueado,
     DuplicateEntity,
     EntityNotFound,
     InvalidOrderData,
@@ -25,6 +27,7 @@ ERROR_STATUS: dict[type[Exception], int] = {
     WeightDiscrepancyDetected: 409,
     DuplicateEntity: 409,
     InvalidOrderData: 422,
+    CreditoBloqueado: 409,
 }
 
 MENSAJES_ERROR = {
@@ -32,9 +35,11 @@ MENSAJES_ERROR = {
     InvalidOrderTransition: "No puedes realizar esta operación en el estado actual de la orden.",
     WeightDiscrepancyDetected: "El peso supera el límite permitido. Tu orden necesita revisión antes de continuar.",
     DuplicateEntity: "Ya existe un registro con ese identificador. Utiliza uno diferente.",
+    CreditoBloqueado: "No se puede confirmar la orden porque el cliente tiene pagos vencidos. Comunícate con Finanzas.",
     InvalidOrderData: "No se pudo completar la operación. Revisa que los datos sean correctos.",
 }
 
+STATIC_DIR = Path(__file__).parent / "static"
 
 def create_app() -> FastAPI:
     application = FastAPI(
@@ -44,6 +49,7 @@ def create_app() -> FastAPI:
     )
     application.include_router(clientes.router)
     application.include_router(ordenes.router)
+    application.include_router(consultas.router)
 
    
     def _handler(status_code: int):
@@ -77,7 +83,12 @@ def create_app() -> FastAPI:
     @application.get("/health", tags=["Sistema"], summary="Estado del servicio")
     def health():
         return {"mensaje": "El sistema está funcionando correctamente."}
-
+   #se muestra interfaz web
+    application.mount(
+        "/",
+        StaticFiles(directory=STATIC_DIR, html=True),
+        name="interfaz"
+    )
     return application
 
 

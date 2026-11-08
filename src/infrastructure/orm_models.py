@@ -1,5 +1,5 @@
 """Modelos relacionales (tablas). No forman parte del dominio."""
-from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Numeric, String
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -13,6 +13,7 @@ class ClienteRow(Base):
     es_corporativo = Column(Boolean, nullable=False, default=False)
     es_preferente = Column(Boolean, nullable=False, default=False)
     activo = Column(Boolean, nullable=False, default=True)
+    dias_morosidad = Column(Integer, nullable=False, default=0)
 
 
 class VehiculoRow(Base):
@@ -50,3 +51,13 @@ class OrdenRow(Base):
     pod_firma_digital = Column(String, nullable=True)
     pod_ine = Column(String, nullable=True)
     pod_fotografias = Column(JSON, nullable=True)
+
+
+class EventoRow(Base):
+    __tablename__ = "eventos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    orden_id = Column(String, nullable=False, index=True)
+    nombre = Column(String, nullable=False)
+    detalle = Column(String, nullable=False, default="")
+    ocurrido_en = Column(DateTime, nullable=False)

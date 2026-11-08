@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from src.domain.models import Cliente, Operador, OrdenServicio, Vehiculo
+from src.domain.models import Cliente, DomainEvent, Operador, OrdenServicio, Vehiculo
 
 
 class ClienteRepository(ABC):
@@ -15,6 +15,9 @@ class ClienteRepository(ABC):
 
     @abstractmethod
     def buscar_por_id(self, cliente_id: str) -> Cliente | None: ...
+
+    @abstractmethod
+    def listar(self) -> list[Cliente]: ...
 
 
 class VehiculoRepository(ABC):
@@ -27,6 +30,9 @@ class VehiculoRepository(ABC):
     @abstractmethod
     def buscar_por_placas(self, placas: str) -> Vehiculo | None: ...
 
+    @abstractmethod
+    def listar(self) -> list[Vehiculo]: ...
+
 
 class OperadorRepository(ABC):
     @abstractmethod
@@ -34,6 +40,9 @@ class OperadorRepository(ABC):
 
     @abstractmethod
     def buscar_por_id(self, operador_id: str) -> Operador | None: ...
+
+    @abstractmethod
+    def listar(self) -> list[Operador]: ...
 
 
 class OrdenServicioRepository(ABC):
@@ -58,3 +67,19 @@ class OrdenServicioRepository(ABC):
 
     @abstractmethod
     def _buscar_por_id(self, orden_id: str) -> OrdenServicio | None: ...
+
+    @abstractmethod
+    def listar(self) -> list[OrdenServicio]: ...
+
+
+class EventoRepository(ABC):
+    """Historial persistido de Domain Events (lado lectura de CQRS)."""
+
+    @abstractmethod
+    def registrar(self, eventos: list[DomainEvent]) -> None: ...
+
+    @abstractmethod
+    def listar_por_orden(self, orden_id: str) -> list[DomainEvent]: ...
+
+    @abstractmethod
+    def listar_todos(self) -> list[DomainEvent]: ...

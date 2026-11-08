@@ -9,6 +9,7 @@ from src.application.unit_of_work import AbstractUnitOfWork
 from src.domain.models import DomainEvent
 from src.infrastructure.repositories import (
     SqlAlchemyClienteRepository,
+    SqlAlchemyEventoRepository,
     SqlAlchemyOperadorRepository,
     SqlAlchemyOrdenServicioRepository,
     SqlAlchemyVehiculoRepository,
@@ -29,6 +30,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
         self.vehiculos = SqlAlchemyVehiculoRepository(self.session)
         self.operadores = SqlAlchemyOperadorRepository(self.session)
         self.ordenes = SqlAlchemyOrdenServicioRepository(self.session)
+        self.eventos = SqlAlchemyEventoRepository(self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:

@@ -114,3 +114,29 @@ class PromocionActivaSpecification(Specification):
 
     def __repr__(self) -> str:
         return "PromocionActiva"
+
+
+LIMITE_MOROSIDAD_DIAS = 30
+
+
+class ClienteCorporativoSpecification(Specification):
+    """El cliente de la orden es corporativo (tiene línea de crédito)."""
+
+    def is_satisfied_by(self, candidate) -> bool:
+        return candidate.cliente.es_corporativo
+
+    def __repr__(self) -> str:
+        return "ClienteCorporativo"
+
+
+class MorosidadDentroLimiteSpecification(Specification):
+    """La morosidad del cliente no excede el límite (30 días por defecto)."""
+
+    def __init__(self, limite_dias: int = LIMITE_MOROSIDAD_DIAS):
+        self.limite_dias = limite_dias
+
+    def is_satisfied_by(self, candidate) -> bool:
+        return candidate.cliente.dias_morosidad <= self.limite_dias
+
+    def __repr__(self) -> str:
+        return f"MorosidadDentroLimite(<={self.limite_dias}d)"

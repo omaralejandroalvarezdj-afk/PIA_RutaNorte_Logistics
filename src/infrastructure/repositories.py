@@ -1,11 +1,14 @@
 """Implementaciones SQLAlchemy de los repositorios del dominio."""
 from __future__ import annotations
 
+from datetime import timezone
+
 from sqlalchemy.orm import Session
 
 from src.domain.models import (
     Cliente,
     Cotizacion,
+    DomainEvent,
     EvidenciaPOD,
     Money,
     Operador,
@@ -16,11 +19,12 @@ from src.domain.models import (
 )
 from src.domain.repositories import (
     ClienteRepository,
+    EventoRepository,
     OperadorRepository,
     OrdenServicioRepository,
     VehiculoRepository,
 )
-from src.infrastructure.orm_models import ClienteRow, OperadorRow, OrdenRow, VehiculoRow
+from src.infrastructure.orm_models import ClienteRow, EventoRow, OperadorRow, OrdenRow, VehiculoRow
 
 
 def _upsert(session: Session, model, pk: str, **values):
@@ -48,11 +52,15 @@ class SqlAlchemyClienteRepository(ClienteRepository):
             es_corporativo=cliente.es_corporativo,
             es_preferente=cliente.es_preferente,
             activo=cliente.activo,
+            dias_morosidad=cliente.dias_morosidad,
         )
 
     def buscar_por_id(self, cliente_id: str) -> Cliente | None:
         row = self.session.get(ClienteRow, cliente_id)
         return self._to_domain(row) if row else None
+
+    def listar(self) -> list[Cliente]:
+        return [self._to_domain(r) for r in self.session.query(ClienteRow).order_by(ClienteRow.id)]
 
     @staticmethod
     def _to_domain(row: ClienteRow) -> Cliente:
@@ -62,6 +70,7 @@ class SqlAlchemyClienteRepository(ClienteRepository):
             es_corporativo=row.es_corporativo,
             activo=row.activo,
             es_preferente=row.es_preferente,
+            dias_morosidad=row.dias_morosidad,
         )
 
 
@@ -80,6 +89,9 @@ class SqlAlchemyVehiculoRepository(VehiculoRepository):
         row = self.session.query(VehiculoRow).filter_by(placas=placas).first()
         return self._to_domain(row) if row else None
 
+    def listar(self) -> list[Vehiculo]:
+        return [self._to_domain(r) for r in self.session.query(VehiculoRow).order_by(VehiculoRow.id)]
+
     @staticmethod
     def _to_domain(row: VehiculoRow) -> Vehiculo:
         return Vehiculo(id=row.id, placas=row.placas, tipo_unidad=row.tipo_unidad)
@@ -95,6 +107,9 @@ class SqlAlchemyOperadorRepository(OperadorRepository):
     def buscar_por_id(self, operador_id: str) -> Operador | None:
         row = self.session.get(OperadorRow, operador_id)
         return self._to_domain(row) if row else None
+
+    def listar(self) -> list[Operador]:
+        return [self._to_domain(r) for r in self.session.query(OperadorRow).order_by(OperadorRow.id)]
 
     @staticmethod
     def _to_domain(row: OperadorRow) -> Operador:
@@ -133,9 +148,12 @@ class SqlAlchemyOrdenServicioRepository(OrdenServicioRepository):
 
     def _buscar_por_id(self, orden_id: str) -> OrdenServicio | None:
         row = self.session.get(OrdenRow, orden_id)
-        if row is None:
-            return None
+        return self._rehidratar(row) if row else None
 
+    def listar(self) -> list[OrdenServicio]:
+        return [self._rehidratar(r) for r in self.session.query(OrdenRow).order_by(OrdenRow.id)]
+
+    def _rehidratar(self, row: OrdenRow) -> OrdenServicio:
         cliente_row = self.session.get(ClienteRow, row.cliente_id)
         vehiculo_row = self.session.get(VehiculoRow, row.vehiculo_id) if row.vehiculo_id else None
         operador_row = self.session.get(OperadorRow, row.operador_id) if row.operador_id else None
@@ -163,3 +181,31 @@ class SqlAlchemyOrdenServicioRepository(OrdenServicioRepository):
             evidencia_pod=pod,
             promocion_activa=row.promocion_activa,
         )
+
+
+class SqlAlchemyEventoRepository(EventoRepository):
+    def __init__(self, session: Session):
+        self.session = session
+
+    def registrar(self, eventos: list[DomainEvent]) -> None:
+        for e in eventos:
+            self.session.add(
+                EventoRow(
+                    orden_id=e.order_id,
+                    nombre=e.name,
+                    detalle=e.detail,
+                    ocurrido_en=e.occurred_at.astimezone(timezone.utc).replace(tzinfo=None),
+                )
+            )
+        self.session.flush()
+
+    def listar_por_orden(self, orden_id: str) -> list[DomainEvent]:
+        rows = self.session.query(EventoRow).filter_by(orden_id=orden_id).order_by(EventoRow.id)
+        return [self._to_domain(r) for r in rows]
+
+    def listar_todos(self) -> list[DomainEvent]:
+        return [self._to_domain(r) for r in self.session.query(EventoRow).order_by(EventoRow.id)]
+
+    @staticmethod
+    def _to_domain(row: EventoRow) -> DomainEvent:
+        return DomainEvent(row.nombre, row.orden_id, row.ocurrido_en.replace(tzinfo=timezone.utc), row.detalle)

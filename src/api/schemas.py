@@ -10,6 +10,17 @@ class RegistrarClienteRequest(BaseModel):
     es_corporativo: bool = False
     es_preferente: bool = False
     activo: bool = True
+    dias_morosidad: int = Field(0, ge=0)
+
+
+class CotizarRequest(BaseModel):
+    origen: str = Field(..., min_length=1)
+    destino: str = Field(..., min_length=1)
+    unidad: str = Field(..., json_schema_extra={"examples": ["rabon"]})
+    peso_kg: float = Field(..., gt=0)
+    volumen_m3: float = Field(..., gt=0)
+    tipo_carga: str = "general"
+    cliente_id: str | None = None
 
 
 class CrearOrdenRequest(BaseModel):

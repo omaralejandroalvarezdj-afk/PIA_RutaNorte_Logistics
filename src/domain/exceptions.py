@@ -23,3 +23,7 @@ class EntityNotFound(DomainException):
 
 class DuplicateEntity(DomainException):
     """Ya existe una entidad con el mismo identificador."""
+
+
+class CreditoBloqueado(DomainException):
+    """El cliente corporativo supera el límite de morosidad (US-13 / RN-12)."""
