@@ -37,7 +37,15 @@ async function calcular(e) {
   const out = root.querySelector('#cot-result');
   if (v('f2') < v('f1')) return toast('La fecha de entrega no puede ser anterior a la recolección.');
   try {
-    cotizacion = await api.cotizar({ cliente_id: v('cliente'), origen: v('origen'), destino: v('destino'), unidad: v('unidad'), peso_kg: Number(v('peso')), volumen_m3: Number(v('vol')), tipo_carga: v('carga') });
+    cotizacion = await api.cotizar({ 
+      cliente_id: v('cliente'), 
+      origen: v('origen'), 
+      destino: v('destino'), 
+      unidad: v('unidad'), 
+      peso_kg: Number(v('peso')), 
+      volumen_m3: Number(v('vol')), 
+      tipo_carga: v('carga') 
+    });
   } catch (err) { out.innerHTML = alertBox('err', esc(err.message)); return; }
   const q = cotizacion, ok = q.credito.apto;
   out.innerHTML = card(`
@@ -61,7 +69,19 @@ async function confirmar(e) {
   e.target.disabled = true;
   let folio;
   try {
-    const orden = await api.crearOrden({ cliente_id: v('cliente'), origen: q.origen, destino: q.destino, distancia_km: q.distancia_km, subtotal: q.subtotal, total: q.total });
+    // Se envían todos los datos requeridos por el backend para la creación de la orden
+    const orden = await api.crearOrden({ 
+      cliente_id: v('cliente'), 
+      origen: q.origen, 
+      destino: q.destino, 
+      distancia_km: q.distancia_km, 
+      subtotal: q.subtotal, 
+      total: q.total,
+      unidad: q.unidad,
+      peso_kg: Number(v('peso')),
+      volumen_m3: Number(v('vol')),
+      tipo_carga: v('carga')
+    });
     folio = orden.numero_orden;
     await api.confirmar(folio);
     box.innerHTML = alertBox('ok', `✓ Orden <b>${esc(folio)}</b> confirmada. <button data-rastrear class="underline font-bold ml-2">Rastrear envío →</button>`);
