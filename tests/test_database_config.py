@@ -15,7 +15,9 @@ def test_fallback_a_sqlite_local(monkeypatch):
 
 def test_normaliza_esquema_postgres(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgres://u:p@host/db")
-    assert get_database_url() == "postgresql://u:p@host/db"
+    assert get_database_url() == "postgresql+psycopg2://u:p@host/db"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/db")
+    assert get_database_url() == "postgresql+psycopg2://u:p@host/db"
 
 
 def test_build_engine_usa_variable_de_entorno(monkeypatch):
