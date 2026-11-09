@@ -19,9 +19,10 @@ DEFAULT_DATABASE_URL = "sqlite:///rutanorte.db"
 
 def get_database_url() -> str:
     url = os.getenv("DATABASE_URL", "").strip() or DEFAULT_DATABASE_URL
-    # Heroku/Render suelen entregar "postgres://", que SQLAlchemy 2.x ya no acepta.
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://"):]
+    # Render entrega "postgres://" o "postgresql://"; se fuerza psycopg2, el driver instalado en la imagen.
+    for prefijo in ("postgres://", "postgresql://"):
+        if url.startswith(prefijo):
+            return "postgresql+psycopg2://" + url[len(prefijo):]
     return url
 
 
